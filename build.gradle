@@ -1,0 +1,117 @@
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.gradle.api.tasks.testing.logging.TestLogEvent
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.github.ksoichiro:gradle-console-reporter:0.6.2'
+    }
+}
+
+plugins {
+    id  'java'
+    id 'jacoco'
+    id 'com.github.kt3k.coveralls' version '2.8.2'
+}
+
+apply plugin: 'com.github.ksoichiro.console.reporter'
+
+group = 'com.ocularminds.webos'
+version = '0.0.1'
+description = """ Lightweight HTTP Server"""
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+repositories {
+    mavenCentral()
+    jcenter()
+    maven { url "https://plugins.gradle.org/m2/" }
+}
+
+dependencies {    
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+}
+
+jar.enabled = true
+
+test{
+    ignoreFailures = true
+    testLogging.showStandardStreams = true
+}
+
+tasks.withType(Test) {
+    testLogging {
+        events "passed", "skipped", "failed", "standardOut", "standardError"
+        exceptionFormat TestExceptionFormat.FULL
+        showExceptions true
+        showCauses true
+        showStackTraces true
+        info.events = debug.events
+        info.exceptionFormat = debug.exceptionFormat
+
+        afterSuite { desc, result ->
+            if (!desc.parent) { 
+                def output = "Results: ${result.resultType} (${result.testCount} tests, ${result.successfulTestCount} successes, ${result.failedTestCount} failures, ${result.skippedTestCount} skipped)"
+                def startItem = '|  ', endItem = '  |'
+                def repeatLength = startItem.length() + output.length() + endItem.length()
+                println('\n' + ('-' * repeatLength) + '\n' + startItem + output + endItem + '\n' + ('-' * repeatLength))
+            }
+        }
+    }
+}
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            element = 'CLASS'
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.5
+            }
+        }
+        rule {
+            element = 'CLASS'
+            includes = ['arrays.Flattener']
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.7
+            }
+        }
+    }
+}
+
+consoleReporter {
+    junit {
+        enabled true
+        reportOnFailure true
+        summaryEnabled true
+        stdoutEnabled true
+        stderrEnabled true
+        stacktraceEnabled true
+        colorEnabled true
+        partialSourceInsertionEnabled true
+    }
+
+    jacoco {
+        enabled true
+        onlyWhenCoverageTaskExecuted true
+        reportAfterBuildFinished true
+        autoconfigureCoverageConfig true
+        coverageTaskName 'jacocoTestReport'      
+        colorEnabled true
+    }
+}
+
+coveralls{
+    service = 'travis-ci'
+    
+}
+check.dependsOn(jacocoTestCoverageVerification)
+test.finalizedBy jacocoTestReport
